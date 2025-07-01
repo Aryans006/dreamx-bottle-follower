@@ -16,6 +16,7 @@ find_package(ament_cmake REQUIRED)
 INSTALL(PROGRAMS
 
   src/follower.py
+  src/controller.py
 
   DESTINATION lib/${PROJECT_NAME}
 )

@@ -6,6 +6,8 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image 
 from cv_bridge import CvBridge
 from ultralytics import YOLO
+from std_msgs.msg import Int32
+from geometry_msgs.msg import Twist
 
 class MyNode(Node):
     def __init__(self):
@@ -14,6 +16,12 @@ class MyNode(Node):
         self.model = YOLO("yolov8n.pt")  
         self.br = CvBridge()
         self.frame = None  # ← Store latest frame here
+        self.kp = 0.01
+        self.new_pub = Twist()
+        
+        self.publisher_ = self.create_publisher(Int32, '/depth_from_detection', 10)
+
+        self.yaw_publisher = self.create_publisher(Twist, '/yaw_vel', 10)
         
         self.subscription = self.create_subscription(
             Image, 
@@ -72,17 +80,53 @@ class MyNode(Node):
                     self.cx = (x1 + x2) / 2
                     self.cy = (y1 + y2) / 2
                     cv2.circle(img, (int(self.cx),int(self.cy)), 1, (0,0,255), -1 )
+                    
+                    cv2.line(self.frame, (600, 0), (600, 738), (0, 0, 255), 1)
+                    cv2.line(self.frame, (670, 0), (670, 738), (0, 0, 255), 1)
+
+                    
                     cv2.putText(img, f'bottle {conf:.2f}', (x1, y1 - 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                     print("here now")
                     depth_val = self.depth_frame[int(self.cy), int(self.cx)]
+                    new_val = Int32()
+                    new_val.data = int(depth_val)  
                     print("DEPTH OF POINT", depth_val)
+                    print("X VALOO", self.cx)
+                    self.publisher_.publish(new_val)
+                    self.align_bot()
+                    
 
                     # Show result
                     cv2.imshow("Detection", img)
                     key = cv2.waitKey(1)
                     if key == ord('q'):
                         rclpy.shutdown()
+
+    def align_bot(self):
+        if self.cx < 600:
+            error = 600 - self.cx
+            self.bot_left(error)
+        elif self.cx > 670:
+            error = 670 - self.cy
+            self.bot_right(error)
+        elif self.cx > 600 and self.cx < 670:
+            print("idhr aagya pencho")
+            new_twist = Twist()
+            new_twist.angular.z = 0.0
+            self.yaw_publisher.publish(new_twist)
+            
+    def bot_left(self, error):
+        #angular z pe plus ya minus
+        self.new_pub.angular.z = 1.0 + error * self.kp
+        self.yaw_publisher.publish(self.new_pub)
+
+    
+    def bot_right(self, error):
+        #angular z pe plus ya minus
+        self.new_pub.angular.z = -1.0 + error * self.kp
+        self.yaw_publisher.publish(self.new_pub)
+
 
 
 def main(args=None):
