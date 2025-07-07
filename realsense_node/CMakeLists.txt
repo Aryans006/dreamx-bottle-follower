@@ -17,6 +17,7 @@ INSTALL(PROGRAMS
 
   src/follower.py
   src/controller.py
+  src/drone_aligner.py
 
   DESTINATION lib/${PROJECT_NAME}
 )
