@@ -79,7 +79,7 @@ class MyNode(Node):
 
         self.p_error = self.depth_val * self.Kp 
         self.d_error = self.Kd*(self.depth_val - self.previous_depth_val)
-        self.velocity_command.linear.x = 1.0 + self.p_error + self.d_error
+        self.velocity_command.linear.x = .0 + self.p_error + self.d_error
         self.publisher_.publish(self.velocity_command)
     
 

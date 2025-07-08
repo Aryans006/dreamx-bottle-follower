@@ -2,7 +2,7 @@
 
 import cv2
 import rclpy
-from rclpy.node import Node
+# from rclpy.node import Node
 from sensor_msgs.msg import Image 
 from cv_bridge import CvBridge
 from ultralytics import YOLO
@@ -10,12 +10,49 @@ from std_msgs.msg import Int32
 from geometry_msgs.msg import Twist
 import math
 import numpy as np
+from rclpy.executors import ExternalShutdownException
+from rclpy.executors import SingleThreadedExecutor
+from rclpy.lifecycle import LifecycleNode
+from rclpy.lifecycle import Publisher
+from rclpy.lifecycle import State
+from rclpy.lifecycle import TransitionCallbackReturn
+from rclpy.timer import Timer
 
 
-class MyNode(Node):
+class MyNode(LifecycleNode):
     def __init__(self):
         super().__init__('image_display_node')
+        self.get_logger().info('AlignerNode created')
+
         
+        # self.model = YOLO("yolov8n.pt")  
+        # self.br = CvBridge()
+        # self.frame = None  # ← Store latest frame here
+        # self.kp = 0.01
+
+        # self.new_twist = Twist()
+
+        # self.yaw_publisher = self.create_publisher(Twist, '/align_vel', 10)
+        
+        # self.subscription = self.create_subscription(
+        #     Image, 
+        #     '/camera/camera/color/image_raw',  # Change topic name if needed
+        #     self.listener_callback, 
+        #     10)
+        
+        # self.depth_frame = None
+        # self.depth_sub = self.create_subscription(
+        #     Image,
+        #     '/camera/camera/depth/image_rect_raw',
+        #     self.depth_callback,
+        #     10)
+
+        # Timer to display image at 30 Hz
+        # self.timer = self.create_timer(1/50.0, self.display_image)
+
+    def on_configure(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Configuring node...')
+        # loading model params and other inits
         self.model = YOLO("yolov8n.pt")  
         self.br = CvBridge()
         self.frame = None  # ← Store latest frame here
@@ -23,24 +60,37 @@ class MyNode(Node):
 
         self.new_twist = Twist()
 
-        self.yaw_publisher = self.create_publisher(Twist, '/align_vel', 10)
+        return TransitionCallbackReturn.SUCCESS
+    
+    
+
+    def on_activate(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Activating node...')
         
+        self.yaw_publisher = self.create_publisher(Twist, '/align_vel', 10)
+
         self.subscription = self.create_subscription(
             Image, 
             '/camera/camera/color/image_raw',  # Change topic name if needed
             self.listener_callback, 
             10)
         
-        self.depth_frame = None
-        self.depth_sub = self.create_subscription(
-            Image,
-            '/camera/camera/depth/image_rect_raw',
-            self.depth_callback,
-            10)
-
-        # Timer to display image at 30 Hz
         self.timer = self.create_timer(1/50.0, self.display_image)
-        # self.timer2 = self.create_timer(1/30.0, self.display_image_Depth)
+        
+        return TransitionCallbackReturn.SUCCESS
+
+
+
+    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Deactivating node...')
+        
+        if self.subscription:
+            self.destroy_subscription(self.subscription)
+            self.subscription = None
+    
+        return TransitionCallbackReturn.SUCCESS
+
+
 
     def listener_callback(self, msg):
         try:
