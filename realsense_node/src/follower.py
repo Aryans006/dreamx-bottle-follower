@@ -8,14 +8,16 @@ from cv_bridge import CvBridge
 from ultralytics import YOLO
 from std_msgs.msg import Int32
 from geometry_msgs.msg import Twist
+import torch
 
 class MyNode(Node):
     def __init__(self):
         super().__init__('image_display_node')
-        
-        self.model = YOLO("yolov8n.pt")  
+
+        self.model = YOLO("yolov5n.pt").to('cuda')
+        # self.model = YOLO("yolov5n.pt")  
         self.br = CvBridge()
-        self.frame = None  # ← Store latest frame here
+        self.frame = None  # ? Store latest frame here
         self.kp = 0.01
         self.new_pub = Twist()
         
@@ -85,9 +87,9 @@ class MyNode(Node):
                     cv2.line(self.frame, (670, 0), (670, 738), (0, 0, 255), 1)
 
                     
-                    cv2.putText(img, f'bottle {conf:.2f}', (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                    print("here now")
+                    # cv2.putText(img, f'bottle {conf:.2f}', (x1, y1 - 10),
+                    #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    # print("here now")
                     depth_val = self.depth_frame[int(self.cy), int(self.cx)]
                     new_val = Int32()
                     new_val.data = int(depth_val)  
@@ -98,11 +100,22 @@ class MyNode(Node):
                     
 
                     # Show result
-                    cv2.imshow("Detection", img)
-                    key = cv2.waitKey(1)
-                    if key == ord('q'):
-                        rclpy.shutdown()
-
+                    # cv2.imshow("Detection", img)
+                    # key = cv2.waitKey(1)
+                    # if key == ord('q'):
+                    #     rclpy.shutdown()
+                else:
+                    new_twist = Twist()
+                    new_twist.angular.z = 0.0
+                    self.yaw_publisher.publish(new_twist)
+	
+    def limit_val(self,error):
+        if error >= 0.2:
+            error = 0.2
+            return float(error)
+        elif error <= -0.2:
+            error = -0.2
+            return float(error)
     def align_bot(self):
         if self.cx < 600:
             error = 600 - self.cx
@@ -111,20 +124,29 @@ class MyNode(Node):
             error = 670 - self.cy
             self.bot_right(error)
         elif self.cx > 600 and self.cx < 670:
-            print("idhr aagya pencho")
             new_twist = Twist()
             new_twist.angular.z = 0.0
             self.yaw_publisher.publish(new_twist)
             
     def bot_left(self, error):
         #angular z pe plus ya minus
-        self.new_pub.angular.z = 1.0 + error * self.kp
+        err_out = 0.0 + error * self.kp
+        err_out = self.limit_val(err_out)
+        if err_out == None:
+            err_out = 0.0
+        self.new_pub.angular.z = float(err_out)
+        print(err_out)
         self.yaw_publisher.publish(self.new_pub)
 
     
     def bot_right(self, error):
         #angular z pe plus ya minus
-        self.new_pub.angular.z = -1.0 + error * self.kp
+        err_out2 = -0.0 + error * self.kp
+        err_out2 = self.limit_val(err_out2)
+        if err_out2 == None:
+            err_out2 = 0.0
+        self.new_pub.angular.z = -(float(err_out2))
+        print(err_out2)
         self.yaw_publisher.publish(self.new_pub)
 
 
