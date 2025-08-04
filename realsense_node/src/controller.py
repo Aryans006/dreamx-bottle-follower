@@ -24,10 +24,17 @@ class MyNode(Node):
 
         self.previous_depth_val = 0.0
         self.current_mode = None
+        
+        
 
+    ##setup interface tor recieve the waypoint on which the script is to be executed here in self.final_points
         self.final_points = 1
+        
+    ##alter kp kd to change behaviour of controller
         self.Kp = 0.1
         self.Kd = 0.1
+        
+    ##general init
         self.depth_val = 0
         self.velocity_command = Twist()
         print("started")

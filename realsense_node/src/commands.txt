@@ -1,6 +1,0 @@
-ros2 run realsense_node controller.py 
-ros2 launch mavros apm.launch fcu_url:=/dev/ttyACM0
-ros2 run realsense_node follower.py
-ros2 topic pub /mavros/mission/reached mavros_msgs/msg/WaypointReached "{wp_seq: 1}"
-ros2 launch realsense2_camera rs_launch.py depth_module.depth_profile:=1280x720x30
-

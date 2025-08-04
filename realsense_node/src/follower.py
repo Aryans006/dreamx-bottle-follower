@@ -9,11 +9,13 @@ from ultralytics import YOLO
 from std_msgs.msg import Int32
 from geometry_msgs.msg import Twist
 import torch
+import time
 
 class MyNode(Node):
     def __init__(self):
         super().__init__('image_display_node')
 
+#swap model here
         self.model = YOLO("yolov5n.pt").to('cuda')
         # self.model = YOLO("yolov5n.pt")  
         self.br = CvBridge()
@@ -27,7 +29,7 @@ class MyNode(Node):
         
         self.subscription = self.create_subscription(
             Image, 
-            '/camera/camera/color/image_raw',  # Change topic name if needed
+            '/camera/camera/color/image_raw', 
             self.listener_callback, 
             10)
         
@@ -38,9 +40,8 @@ class MyNode(Node):
             self.depth_callback,
             10)
 
-        # Timer to display image at 30 Hz
+# Timer to alter hz at which the code runs
         self.timer = self.create_timer(1/50.0, self.display_image)
-        # self.timer2 = self.create_timer(1/30.0, self.display_image_Depth)
 
     def listener_callback(self, msg):
         try:
@@ -74,41 +75,51 @@ class MyNode(Node):
         else:    
             for box in results.boxes:
                 print("leaving now")
-                if int(box.cls[0]) == 39:  # class 0 = person
-                    print("here now")
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    conf = box.conf[0]
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    self.cx = (x1 + x2) / 2
-                    self.cy = (y1 + y2) / 2
-                    cv2.circle(img, (int(self.cx),int(self.cy)), 1, (0,0,255), -1 )
-                    
-                    cv2.line(self.frame, (600, 0), (600, 738), (0, 0, 255), 1)
-                    cv2.line(self.frame, (670, 0), (670, 738), (0, 0, 255), 1)
-
-                    
-                    # cv2.putText(img, f'bottle {conf:.2f}', (x1, y1 - 10),
-                    #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                    # print("here now")
-                    depth_val = self.depth_frame[int(self.cy), int(self.cx)]
-                    new_val = Int32()
-                    new_val.data = int(depth_val)  
-                    print("DEPTH OF POINT", depth_val)
-                    print("X VALOO", self.cx)
-                    self.publisher_.publish(new_val)
-                    self.align_bot()
-                    
-
-                    # Show result
-                    # cv2.imshow("Detection", img)
-                    # key = cv2.waitKey(1)
-                    # if key == ord('q'):
-                    #     rclpy.shutdown()
-                else:
+                
+                while int(box.cls[0]) != 39:  # class 0 = person
                     new_twist = Twist()
                     new_twist.angular.z = 0.0
                     self.yaw_publisher.publish(new_twist)
-	
+                    print("Startiing locating behaviour")
+                    self.new_pub.linear.y = 0.3
+                    self.yaw_publisher.publish(self.new_pub)
+                    self.new_pub.linear.y = 0.3
+                    self.yaw_publisher.publish(self.new_pub)
+                    
+                
+                print("here now")
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                conf = box.conf[0]
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                self.cx = (x1 + x2) / 2
+                self.cy = (y1 + y2) / 2
+                cv2.circle(img, (int(self.cx),int(self.cy)), 1, (0,0,255), -1 )
+                
+                cv2.line(self.frame, (600, 0), (600, 738), (0, 0, 255), 1)
+                cv2.line(self.frame, (670, 0), (670, 738), (0, 0, 255), 1)
+
+# Uncomment for printing text on frame   
+    
+                # cv2.putText(img, f'bottle {conf:.2f}', (x1, y1 - 10),
+                #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                # print("here now")
+                depth_val = self.depth_frame[int(self.cy), int(self.cx)]
+                new_val = Int32()
+                new_val.data = int(depth_val)  
+                print("DEPTH OF POINT", depth_val)
+                print("X VALOO", self.cx)
+                self.publisher_.publish(new_val)
+                self.align_bot()
+                
+
+# Uncomment for running imshow
+                # cv2.imshow("Detection", img)
+                # key = cv2.waitKey(1)
+                # if key == ord('q'):
+                #     rclpy.shutdown()
+
+
+                    
     def limit_val(self,error):
         if error >= 0.2:
             error = 0.2
